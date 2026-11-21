@@ -4,7 +4,7 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <meta name="color-scheme" content="light">
-  <title>AI Image Studio • High-Quality Visual Generator</title>
+  <title>AI Image Generator Studio & Dump</title>
   <script src="https://cdn.tailwindcss.com"></script>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -103,7 +103,7 @@
             <h1 class="text-base font-bold text-slate-900 tracking-tight">AI Image Generator Studio</h1>
             <span class="text-[10px] font-bold px-2 py-0.5 rounded-full bg-blue-100 text-blue-800 border border-blue-200">Port 5000</span>
           </div>
-          <p class="text-xs text-slate-500">Dedicated high-resolution visual creation engine • Prompt Optimizer • Permanent Asset Hosting</p>
+          <p class="text-xs text-slate-500">Dedicated visual creation engine • Automated prompt optimizer • Curation & Image Dump</p>
         </div>
       </div>
 
@@ -129,7 +129,7 @@
           <i data-lucide="sparkles" class="w-4 h-4 text-white"></i>
         </div>
         <p class="text-xs text-slate-700">
-          <strong class="font-bold text-slate-900">Dedicated Image Engine:</strong> Pure visual creation service. Generates high-quality, professional, textless images via direct prompts or API requests. Images are saved locally for permanent linking.
+          <strong class="font-bold text-slate-900">Dedicated Image Engine & Image Dump:</strong> Generate high-resolution, textless visuals via prompts or REST API. Review, approve, or reject generated outputs in the centralized Image Dump section.
         </p>
       </div>
       <div class="flex items-center gap-2">
@@ -144,8 +144,9 @@
       <button onclick="switchTab('studio')" id="tab-btn-studio" class="pb-3 border-b-2 border-blue-600 text-blue-700 flex items-center gap-2 transition-all">
         <i data-lucide="wand-2" class="w-4 h-4"></i> Visual Image Studio
       </button>
-      <button onclick="switchTab('gallery')" id="tab-btn-gallery" class="pb-3 border-b-2 border-transparent text-slate-600 hover:text-slate-900 flex items-center gap-2 transition-all">
-        <i data-lucide="layout-grid" class="w-4 h-4"></i> Image Asset Gallery
+      <button onclick="switchTab('dump')" id="tab-btn-dump" class="pb-3 border-b-2 border-transparent text-slate-600 hover:text-slate-900 flex items-center gap-2 transition-all">
+        <i data-lucide="layers" class="w-4 h-4"></i> Image Dump (Approve & Reject)
+        <span id="tab-dump-badge" class="px-2 py-0.2 rounded-full text-[10px] bg-slate-200 text-slate-700 font-bold ml-1">0</span>
       </button>
       <button onclick="switchTab('api-docs')" id="tab-btn-api-docs" class="pb-3 border-b-2 border-transparent text-slate-600 hover:text-slate-900 flex items-center gap-2 transition-all">
         <i data-lucide="code" class="w-4 h-4"></i> API Integration (POST /api/generate)
@@ -210,7 +211,7 @@
               <i data-lucide="image" class="w-7 h-7 text-blue-600"></i>
             </div>
             <h3 class="font-bold text-slate-900 text-base">Generated Image Will Appear Here</h3>
-            <p class="text-xs text-slate-500 max-w-md leading-relaxed">Enter a prompt on the left and click Generate AI Image. The high-resolution asset will display with download and permanent URL link options.</p>
+            <p class="text-xs text-slate-500 max-w-md leading-relaxed">Enter a prompt on the left and click Generate AI Image. The high-resolution asset will display with immediate Approve/Reject curation controls.</p>
           </div>
 
           <div id="preview-loading" class="hidden panel-card p-12 text-center flex flex-col items-center justify-center space-y-4 min-h-[440px]">
@@ -224,7 +225,9 @@
           <div id="preview-card" class="hidden panel-card p-6 space-y-5">
             <div class="flex items-center justify-between border-b border-slate-100 pb-3">
               <div class="flex items-center gap-2">
-                <span class="text-[11px] font-bold px-2.5 py-0.5 rounded-full bg-emerald-50 text-emerald-800 border border-emerald-200">Asset Ready</span>
+                <span id="out-status-pill" class="text-[11px] font-bold px-2.5 py-0.5 rounded-full bg-amber-50 text-amber-800 border border-amber-200">
+                  Pending Review
+                </span>
                 <span id="out-dimensions" class="text-xs font-mono text-slate-500">1792x1024</span>
               </div>
               <span id="out-provider" class="text-xs font-mono text-blue-600 font-semibold bg-blue-50 px-2.5 py-0.5 rounded border border-blue-200"></span>
@@ -242,13 +245,26 @@
                 <p id="out-prompt" class="text-xs text-slate-900 font-mono bg-slate-50 p-3 rounded-lg border border-slate-200 mt-1 select-all leading-relaxed"></p>
               </div>
 
-              <div class="flex flex-wrap items-center gap-2 pt-1">
-                <a id="out-download-btn" href="#" target="_blank" download class="py-2 px-3.5 rounded-lg btn-brand text-xs flex items-center gap-1.5">
-                  <i data-lucide="download" class="w-3.5 h-3.5"></i> Download Image
-                </a>
-                <button onclick="copyImageUrl(this)" class="py-2 px-3.5 rounded-lg bg-slate-100 hover:bg-slate-200 text-slate-800 text-xs font-semibold flex items-center gap-1.5 transition-colors">
-                  <i data-lucide="copy" class="w-3.5 h-3.5"></i> Copy Asset URL
-                </button>
+              <!-- Curation & Action Controls -->
+              <div class="p-3 bg-slate-50 rounded-xl border border-slate-200 flex flex-wrap items-center justify-between gap-3">
+                <div class="flex items-center gap-2">
+                  <span class="text-xs font-bold text-slate-700">Dump Action:</span>
+                  <button id="preview-btn-approve" onclick="curateCurrentImage('approved')" class="py-1.5 px-3 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold flex items-center gap-1.5 shadow-xs transition-colors">
+                    <i data-lucide="check" class="w-3.5 h-3.5"></i> <span>Approve Image</span>
+                  </button>
+                  <button id="preview-btn-reject" onclick="curateCurrentImage('rejected')" class="py-1.5 px-3 rounded-lg bg-rose-600 hover:bg-rose-700 text-white text-xs font-bold flex items-center gap-1.5 shadow-xs transition-colors">
+                    <i data-lucide="x" class="w-3.5 h-3.5"></i> <span>Reject Image</span>
+                  </button>
+                </div>
+
+                <div class="flex items-center gap-2">
+                  <a id="out-download-btn" href="#" target="_blank" download class="py-1.5 px-3 rounded-lg bg-white border border-slate-300 text-slate-700 hover:bg-slate-100 text-xs font-semibold flex items-center gap-1.5 transition-colors">
+                    <i data-lucide="download" class="w-3.5 h-3.5"></i> Download
+                  </a>
+                  <button onclick="copyImageUrl(this)" class="py-1.5 px-3 rounded-lg bg-white border border-slate-300 text-slate-700 hover:bg-slate-100 text-xs font-semibold flex items-center gap-1.5 transition-colors">
+                    <i data-lucide="copy" class="w-3.5 h-3.5"></i> Copy URL
+                  </button>
+                </div>
               </div>
             </div>
           </div>
@@ -256,20 +272,81 @@
       </div>
     </div>
 
-    <!-- TAB 2: ASSET GALLERY -->
-    <div id="tab-gallery" class="hidden space-y-6">
-      <div class="flex items-center justify-between">
-        <div>
-          <h2 class="text-lg font-bold text-slate-900">Generated Image Gallery</h2>
-          <p class="text-xs text-slate-500">Persistent catalog of all generated images and visual assets.</p>
+    <!-- TAB 2: IMAGE DUMP SECTION (APPROVE & REJECT) -->
+    <div id="tab-dump" class="hidden space-y-6">
+      <!-- Dump Metrics Summary Header -->
+      <div class="grid grid-cols-2 sm:grid-cols-4 gap-4">
+        <div onclick="setDumpFilter('all')" class="cursor-pointer panel-card p-4 transition-all hover:border-blue-400 border-2" id="metric-card-all">
+          <div class="flex items-center justify-between text-xs text-slate-500 font-semibold">
+            <span>Total Dump</span>
+            <i data-lucide="layers" class="w-4 h-4 text-slate-500"></i>
+          </div>
+          <p id="stat-all" class="text-2xl font-extrabold text-slate-900 mt-2">0</p>
+          <p class="text-[11px] text-slate-500 mt-0.5">All generated visuals</p>
         </div>
-        <button onclick="fetchGallery()" class="py-2 px-3 rounded-lg bg-white border border-slate-300 hover:bg-slate-50 text-slate-700 text-xs font-semibold flex items-center gap-1.5">
-          <i data-lucide="refresh-cw" class="w-3.5 h-3.5"></i> Refresh Gallery
-        </button>
+
+        <div onclick="setDumpFilter('approved')" class="cursor-pointer panel-card p-4 transition-all hover:border-emerald-400 border-2" id="metric-card-approved">
+          <div class="flex items-center justify-between text-xs text-emerald-700 font-semibold">
+            <span>Approved</span>
+            <i data-lucide="check-circle" class="w-4 h-4 text-emerald-600"></i>
+          </div>
+          <p id="stat-approved" class="text-2xl font-extrabold text-emerald-700 mt-2">0</p>
+          <p class="text-[11px] text-emerald-600 mt-0.5">Validated for production</p>
+        </div>
+
+        <div onclick="setDumpFilter('rejected')" class="cursor-pointer panel-card p-4 transition-all hover:border-rose-400 border-2" id="metric-card-rejected">
+          <div class="flex items-center justify-between text-xs text-rose-700 font-semibold">
+            <span>Rejected</span>
+            <i data-lucide="x-circle" class="w-4 h-4 text-rose-600"></i>
+          </div>
+          <p id="stat-rejected" class="text-2xl font-extrabold text-rose-700 mt-2">0</p>
+          <p class="text-[11px] text-rose-600 mt-0.5">Discarded or unapproved</p>
+        </div>
+
+        <div onclick="setDumpFilter('pending')" class="cursor-pointer panel-card p-4 transition-all hover:border-amber-400 border-2" id="metric-card-pending">
+          <div class="flex items-center justify-between text-xs text-amber-700 font-semibold">
+            <span>Needs Review</span>
+            <i data-lucide="clock" class="w-4 h-4 text-amber-600"></i>
+          </div>
+          <p id="stat-pending" class="text-2xl font-extrabold text-amber-700 mt-2">0</p>
+          <p class="text-[11px] text-amber-600 mt-0.5">Awaiting curation</p>
+        </div>
       </div>
 
-      <div id="gallery-grid" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-        <div class="col-span-full p-8 text-center text-slate-400">Loading gallery...</div>
+      <!-- Dump Control Toolbar -->
+      <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4 panel-card p-4">
+        <!-- Filter Pills -->
+        <div class="flex items-center gap-2 overflow-x-auto">
+          <button onclick="setDumpFilter('all')" id="dump-filter-all" class="px-3.5 py-1.5 rounded-lg text-xs font-bold bg-blue-600 text-white shadow-xs transition-colors">
+            All Dump Images (<span id="btn-count-all">0</span>)
+          </button>
+          <button onclick="setDumpFilter('approved')" id="dump-filter-approved" class="px-3.5 py-1.5 rounded-lg text-xs font-bold bg-slate-100 hover:bg-slate-200 text-slate-700 transition-colors">
+            ✓ Approved (<span id="btn-count-approved">0</span>)
+          </button>
+          <button onclick="setDumpFilter('rejected')" id="dump-filter-rejected" class="px-3.5 py-1.5 rounded-lg text-xs font-bold bg-slate-100 hover:bg-slate-200 text-slate-700 transition-colors">
+            ✕ Rejected (<span id="btn-count-rejected">0</span>)
+          </button>
+          <button onclick="setDumpFilter('pending')" id="dump-filter-pending" class="px-3.5 py-1.5 rounded-lg text-xs font-bold bg-slate-100 hover:bg-slate-200 text-slate-700 transition-colors">
+            ⏳ Pending (<span id="btn-count-pending">0</span>)
+          </button>
+        </div>
+
+        <!-- Global Dump Actions -->
+        <div class="flex items-center gap-2 shrink-0">
+          <button onclick="purgeRejectedImages()" class="py-1.5 px-3 rounded-lg bg-rose-50 hover:bg-rose-100 border border-rose-200 text-rose-700 text-xs font-semibold flex items-center gap-1.5 transition-colors" title="Deletes all rejected images from disk to free up space">
+            <i data-lucide="trash-2" class="w-3.5 h-3.5"></i>
+            <span>Purge All Rejected</span>
+          </button>
+          <button onclick="fetchImageDump()" class="py-1.5 px-3 rounded-lg bg-white border border-slate-300 hover:bg-slate-50 text-slate-700 text-xs font-semibold flex items-center gap-1.5 transition-colors">
+            <i data-lucide="refresh-cw" class="w-3.5 h-3.5"></i>
+            <span>Refresh Dump</span>
+          </button>
+        </div>
+      </div>
+
+      <!-- Dump Gallery Grid -->
+      <div id="dump-grid" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+        <div class="col-span-full p-8 text-center text-slate-400">Loading image dump...</div>
       </div>
     </div>
 
@@ -278,16 +355,16 @@
       <div class="max-w-3xl panel-card p-6 space-y-6">
         <div>
           <h2 class="text-base font-bold text-slate-900 flex items-center gap-2">
-            <i data-lucide="code" class="w-5 h-5 text-blue-600"></i> Image Generation REST API
+            <i data-lucide="code" class="w-5 h-5 text-blue-600"></i> Image Generation & Dump REST API
           </h2>
           <p class="text-xs text-slate-500 mt-1 leading-relaxed">
-            Integrate this image generator into any backend, script, or external service by sending an HTTP POST request to <code>http://localhost:5000/api/generate</code>.
+            Integrate this image generator and curation workflow into any backend, script, or external service.
           </p>
         </div>
 
         <div class="space-y-4">
           <div class="space-y-2">
-            <h3 class="text-xs font-bold text-slate-800 uppercase tracking-wider">cURL Request Example</h3>
+            <h3 class="text-xs font-bold text-slate-800 uppercase tracking-wider">1. Generate Image (POST /api/generate)</h3>
             <pre class="p-4 rounded-xl bg-slate-900 text-emerald-400 text-xs leading-relaxed overflow-x-auto">curl -X POST http://localhost:5000/api/generate \
   -H "Content-Type: application/json" \
   -d '{
@@ -298,36 +375,15 @@
           </div>
 
           <div class="space-y-2">
-            <h3 class="text-xs font-bold text-slate-800 uppercase tracking-wider">JavaScript (fetch) Example</h3>
-            <pre class="p-4 rounded-xl bg-slate-900 text-cyan-400 text-xs leading-relaxed overflow-x-auto">const response = await fetch('http://localhost:5000/api/generate', {
-  method: 'POST',
-  headers: { 'Content-Type': 'application/json' },
-  body: JSON.stringify({
-    prompt: 'A smiling person receiving expert dental checkup',
-    style: 'Commercial Photography',
-    aspectRatio: '16:9'
-  })
-});
-const data = await response.json();
-console.log('Image URL:', data.image.url);</pre>
+            <h3 class="text-xs font-bold text-slate-800 uppercase tracking-wider">2. Curate Status (PATCH /api/images/:id/status)</h3>
+            <pre class="p-4 rounded-xl bg-slate-900 text-cyan-400 text-xs leading-relaxed overflow-x-auto">curl -X PATCH http://localhost:5000/api/images/img_12345/status \
+  -H "Content-Type: application/json" \
+  -d '{ "status": "approved" }'   # or "rejected", "pending"</pre>
           </div>
 
           <div class="space-y-2">
-            <h3 class="text-xs font-bold text-slate-800 uppercase tracking-wider">JSON Response Format</h3>
-            <pre class="p-4 rounded-xl bg-slate-900 text-amber-300 text-xs leading-relaxed overflow-x-auto">{
-  "success": true,
-  "message": "High-quality image generated successfully",
-  "image": {
-    "id": "img_1794692266103_fsduevk",
-    "url": "http://localhost:5000/generated/img_1794692266103_fsduevk.png",
-    "width": 1792,
-    "height": 1024,
-    "aspectRatio": "16:9",
-    "style": "Commercial Photography",
-    "provider": "openai",
-    "model": "dall-e-3"
-  }
-}</pre>
+            <h3 class="text-xs font-bold text-slate-800 uppercase tracking-wider">3. Query Filtered Dump (GET /api/images?status=approved)</h3>
+            <pre class="p-4 rounded-xl bg-slate-900 text-amber-300 text-xs leading-relaxed overflow-x-auto">curl http://localhost:5000/api/images?status=approved</pre>
           </div>
         </div>
       </div>
@@ -337,10 +393,11 @@ console.log('Image URL:', data.image.url);</pre>
   <script>
     let activeTab = 'studio';
     let currentImageObj = null;
+    let dumpFilter = 'all';
 
     function switchTab(tab) {
       activeTab = tab;
-      ['studio', 'gallery', 'api-docs'].forEach(t => {
+      ['studio', 'dump', 'api-docs'].forEach(t => {
         const el = document.getElementById(`tab-${t}`);
         const btn = document.getElementById(`tab-btn-${t}`);
         if (t === tab) {
@@ -351,7 +408,7 @@ console.log('Image URL:', data.image.url);</pre>
           btn.className = 'pb-3 border-b-2 border-transparent text-slate-600 hover:text-slate-900 flex items-center gap-2 transition-all';
         }
       });
-      if (tab === 'gallery') fetchGallery();
+      if (tab === 'dump') fetchImageDump();
       lucide.createIcons();
     }
 
@@ -384,6 +441,7 @@ console.log('Image URL:', data.image.url);</pre>
         if (data.success && data.image) {
           currentImageObj = data.image;
           renderImageOutput(data.image);
+          updateDumpBadge();
         } else {
           alert('Generation failed: ' + (data.error || 'Unknown error'));
           document.getElementById('preview-empty').classList.remove('hidden');
@@ -402,8 +460,46 @@ console.log('Image URL:', data.image.url);</pre>
       document.getElementById('out-provider').textContent = `${img.provider.toUpperCase()} • ${img.model}`;
       document.getElementById('out-prompt').textContent = img.prompt;
       document.getElementById('out-download-btn').href = img.url;
+
+      updatePreviewStatusPill(img.status || 'pending');
+
       document.getElementById('preview-card').classList.remove('hidden');
       lucide.createIcons();
+    }
+
+    function updatePreviewStatusPill(status) {
+      const pill = document.getElementById('out-status-pill');
+      if (status === 'approved') {
+        pill.className = 'text-[11px] font-bold px-2.5 py-0.5 rounded-full bg-emerald-50 text-emerald-800 border border-emerald-200';
+        pill.innerHTML = '✓ Approved';
+      } else if (status === 'rejected') {
+        pill.className = 'text-[11px] font-bold px-2.5 py-0.5 rounded-full bg-rose-50 text-rose-800 border border-rose-200';
+        pill.innerHTML = '✕ Rejected';
+      } else {
+        pill.className = 'text-[11px] font-bold px-2.5 py-0.5 rounded-full bg-amber-50 text-amber-800 border border-amber-200';
+        pill.innerHTML = '⏳ Needs Review';
+      }
+    }
+
+    async function curateCurrentImage(status) {
+      if (!currentImageObj?.id) return;
+      try {
+        const res = await fetch(`/api/images/${currentImageObj.id}/status`, {
+          method: 'PATCH',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ status })
+        });
+        const data = await res.json();
+        if (data.success) {
+          currentImageObj.status = status;
+          updatePreviewStatusPill(status);
+          updateDumpBadge();
+        } else {
+          alert('Failed to update status: ' + data.error);
+        }
+      } catch (err) {
+        alert('Status update error: ' + err.message);
+      }
     }
 
     function copyImageUrl(btn) {
@@ -415,52 +511,161 @@ console.log('Image URL:', data.image.url);</pre>
       setTimeout(() => { btn.innerHTML = original; lucide.createIcons(); }, 2000);
     }
 
-    async function fetchGallery() {
-      const grid = document.getElementById('gallery-grid');
-      grid.innerHTML = `<div class="col-span-full p-8 text-center text-slate-400">Loading gallery...</div>`;
+    function setDumpFilter(filter) {
+      dumpFilter = filter;
+      ['all', 'approved', 'rejected', 'pending'].forEach(f => {
+        const btn = document.getElementById(`dump-filter-${f}`);
+        const card = document.getElementById(`metric-card-${f}`);
+        if (f === filter) {
+          btn.className = 'px-3.5 py-1.5 rounded-lg text-xs font-bold bg-blue-600 text-white shadow-xs transition-colors';
+          card.classList.add('border-blue-500', 'bg-blue-50/20');
+        } else {
+          btn.className = 'px-3.5 py-1.5 rounded-lg text-xs font-bold bg-slate-100 hover:bg-slate-200 text-slate-700 transition-colors';
+          card.classList.remove('border-blue-500', 'bg-blue-50/20');
+        }
+      });
+      fetchImageDump();
+    }
+
+    async function fetchImageDump() {
+      const grid = document.getElementById('dump-grid');
+      grid.innerHTML = `<div class="col-span-full p-8 text-center text-slate-400">Loading image dump...</div>`;
       try {
-        const res = await fetch('/api/images');
+        const res = await fetch(`/api/images?status=${dumpFilter}`);
         const data = await res.json();
         const images = data.images || [];
+        const stats = data.stats || { all: 0, approved: 0, rejected: 0, pending: 0 };
+
+        // Update stats counters
+        document.getElementById('stat-all').textContent = stats.all;
+        document.getElementById('stat-approved').textContent = stats.approved;
+        document.getElementById('stat-rejected').textContent = stats.rejected;
+        document.getElementById('stat-pending').textContent = stats.pending;
+
+        document.getElementById('btn-count-all').textContent = stats.all;
+        document.getElementById('btn-count-approved').textContent = stats.approved;
+        document.getElementById('btn-count-rejected').textContent = stats.rejected;
+        document.getElementById('btn-count-pending').textContent = stats.pending;
+        document.getElementById('tab-dump-badge').textContent = stats.all;
 
         if (images.length === 0) {
-          grid.innerHTML = `<div class="col-span-full p-12 text-center text-slate-400 bg-white rounded-2xl border border-slate-200">No images generated yet. Go to Visual Image Studio to create your first visual!</div>`;
+          grid.innerHTML = `<div class="col-span-full p-12 text-center text-slate-400 bg-white rounded-2xl border border-slate-200">No images found in '${dumpFilter.toUpperCase()}' dump filter.</div>`;
           return;
         }
 
-        grid.innerHTML = images.map(img => `
-          <div class="panel-card overflow-hidden flex flex-col justify-between">
-            <div class="bg-slate-950 h-48 flex items-center justify-center overflow-hidden">
+        grid.innerHTML = images.map(img => {
+          const status = img.status || 'pending';
+          let statusBadge = '';
+          if (status === 'approved') {
+            statusBadge = `<span class="px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-emerald-100 text-emerald-800 border border-emerald-300 flex items-center gap-1 shadow-xs"><i data-lucide="check" class="w-3 h-3"></i> Approved</span>`;
+          } else if (status === 'rejected') {
+            statusBadge = `<span class="px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-rose-100 text-rose-800 border border-rose-300 flex items-center gap-1 shadow-xs"><i data-lucide="x" class="w-3 h-3"></i> Rejected</span>`;
+          } else {
+            statusBadge = `<span class="px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-amber-100 text-amber-800 border border-amber-300 flex items-center gap-1 shadow-xs"><i data-lucide="clock" class="w-3 h-3"></i> Needs Review</span>`;
+          }
+
+          return `
+          <div class="panel-card overflow-hidden flex flex-col justify-between border-2 ${status === 'approved' ? 'border-emerald-200' : (status === 'rejected' ? 'border-rose-200' : 'border-slate-200')} transition-all">
+            <div class="relative bg-slate-950 h-52 flex items-center justify-center overflow-hidden group">
               <img src="${img.url}" alt="Asset" class="w-full h-full object-cover">
-            </div>
-            <div class="p-4 space-y-2">
-              <div class="flex items-center justify-between text-[11px] text-slate-500 font-mono">
-                <span>${img.width}x${img.height}</span>
-                <span class="px-2 py-0.5 rounded bg-blue-50 text-blue-700 font-bold">${img.aspect_ratio || '16:9'}</span>
+              <div class="absolute top-2.5 right-2.5">
+                ${statusBadge}
               </div>
+              <div class="absolute bottom-2 left-2.5 text-[10px] font-mono font-bold text-white bg-black/60 px-2 py-0.5 rounded backdrop-blur-xs">
+                ${img.width}x${img.height} • ${img.aspect_ratio || '16:9'}
+              </div>
+            </div>
+
+            <div class="p-4 space-y-3">
               <p class="text-xs font-bold text-slate-900 line-clamp-2">${img.title || img.prompt}</p>
-              <div class="flex items-center justify-between pt-2 border-t border-slate-100">
-                <a href="${img.url}" target="_blank" download class="text-xs font-semibold text-blue-600 hover:text-blue-800">Download</a>
-                <button onclick="navigator.clipboard.writeText('${img.url}')" class="text-xs text-slate-600 hover:text-slate-800">Copy URL</button>
-                <button onclick="deleteImage('${img.id}')" class="text-xs text-rose-600 hover:text-rose-800">Delete</button>
+
+              <!-- Curation Buttons -->
+              <div class="grid grid-cols-2 gap-2 pt-1 border-t border-slate-100">
+                <button onclick="updateDumpImageStatus('${img.id}', 'approved')" class="py-1.5 px-2 rounded-lg text-xs font-bold flex items-center justify-center gap-1 transition-colors ${status === 'approved' ? 'bg-emerald-600 text-white' : 'bg-emerald-50 hover:bg-emerald-100 text-emerald-700 border border-emerald-200'}">
+                  <i data-lucide="check" class="w-3.5 h-3.5"></i>
+                  <span>${status === 'approved' ? 'Approved' : 'Approve'}</span>
+                </button>
+                <button onclick="updateDumpImageStatus('${img.id}', 'rejected')" class="py-1.5 px-2 rounded-lg text-xs font-bold flex items-center justify-center gap-1 transition-colors ${status === 'rejected' ? 'bg-rose-600 text-white' : 'bg-rose-50 hover:bg-rose-100 text-rose-700 border border-rose-200'}">
+                  <i data-lucide="x" class="w-3.5 h-3.5"></i>
+                  <span>${status === 'rejected' ? 'Rejected' : 'Reject'}</span>
+                </button>
+              </div>
+
+              <!-- Utilities -->
+              <div class="flex items-center justify-between pt-2 border-t border-slate-100 text-xs">
+                <a href="${img.url}" target="_blank" download class="font-semibold text-blue-600 hover:text-blue-800 flex items-center gap-1">
+                  <i data-lucide="download" class="w-3 h-3"></i> Download
+                </a>
+                <button onclick="navigator.clipboard.writeText('${img.url}')" class="text-slate-600 hover:text-slate-800 font-semibold flex items-center gap-1">
+                  <i data-lucide="copy" class="w-3 h-3"></i> Copy URL
+                </button>
+                <button onclick="deleteImage('${img.id}')" class="text-rose-600 hover:text-rose-800 font-semibold flex items-center gap-1">
+                  <i data-lucide="trash" class="w-3 h-3"></i> Delete
+                </button>
               </div>
             </div>
           </div>
-        `).join('');
+          `;
+        }).join('');
         lucide.createIcons();
       } catch (err) {
-        grid.innerHTML = `<div class="col-span-full p-8 text-center text-rose-600">Failed to load gallery: ${err.message}</div>`;
+        grid.innerHTML = `<div class="col-span-full p-8 text-center text-rose-600">Failed to load dump: ${err.message}</div>`;
+      }
+    }
+
+    async function updateDumpImageStatus(id, newStatus) {
+      try {
+        const res = await fetch(`/api/images/${id}/status`, {
+          method: 'PATCH',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ status: newStatus })
+        });
+        const data = await res.json();
+        if (data.success) {
+          fetchImageDump();
+        } else {
+          alert('Could not update status: ' + data.error);
+        }
+      } catch (err) {
+        alert('Error updating status: ' + err.message);
+      }
+    }
+
+    async function purgeRejectedImages() {
+      if (!confirm('Are you sure you want to purge all rejected images? This will permanently delete them from the database and disk.')) return;
+      try {
+        const res = await fetch('/api/images/purge-rejected', { method: 'POST' });
+        const data = await res.json();
+        if (data.success) {
+          alert(`Successfully purged ${data.deletedCount} rejected image(s)!`);
+          fetchImageDump();
+        } else {
+          alert('Purge failed: ' + data.error);
+        }
+      } catch (err) {
+        alert('Purge request error: ' + err.message);
       }
     }
 
     async function deleteImage(id) {
       if (!confirm('Permanently delete this image?')) return;
       await fetch(`/api/images/${id}`, { method: 'DELETE' });
-      fetchGallery();
+      fetchImageDump();
+    }
+
+    async function updateDumpBadge() {
+      try {
+        const res = await fetch('/api/images');
+        const data = await res.json();
+        if (data.stats) {
+          document.getElementById('tab-dump-badge').textContent = data.stats.all;
+        }
+      } catch (e) {}
     }
 
     document.addEventListener('DOMContentLoaded', () => {
       lucide.createIcons();
+      updateDumpBadge();
     });
   </script>
 </body>

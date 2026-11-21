@@ -115,8 +115,8 @@ export class GeneratorService {
     db.execute(`
       INSERT INTO generated_images (
         id, blog_id, title, prompt, optimized_prompt, style, aspect_ratio,
-        width, height, file_name, url, provider, model, generation_time_ms, created_at
-      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        width, height, file_name, url, provider, model, status, generation_time_ms, created_at
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     `, [
       id,
       blogId || null,
@@ -131,6 +131,7 @@ export class GeneratorService {
       imageUrl,
       provider,
       model,
+      'pending',
       durationMs,
       now
     ]);
@@ -147,6 +148,7 @@ export class GeneratorService {
       originalPrompt: prompt || title || topic,
       provider,
       model,
+      status: 'pending',
       generationTimeMs: durationMs,
       createdAt: now
     };

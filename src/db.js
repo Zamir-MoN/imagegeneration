@@ -24,6 +24,7 @@ database.exec(`
     url TEXT NOT NULL,
     provider TEXT NOT NULL,
     model TEXT NOT NULL,
+    status TEXT DEFAULT 'pending',
     generation_time_ms INTEGER DEFAULT 0,
     created_at TEXT NOT NULL
   );
@@ -31,6 +32,17 @@ database.exec(`
   CREATE INDEX IF NOT EXISTS idx_images_created ON generated_images(created_at DESC);
   CREATE INDEX IF NOT EXISTS idx_images_blog ON generated_images(blog_id);
 `);
+
+// Migration: ensure status column exists for existing databases
+try {
+  database.exec(`ALTER TABLE generated_images ADD COLUMN status TEXT DEFAULT 'pending';`);
+} catch (e) {
+  // Column already exists
+}
+
+try {
+  database.exec(`CREATE INDEX IF NOT EXISTS idx_images_status ON generated_images(status);`);
+} catch (e) {}
 
 export const db = {
   execute(sql, params = []) {

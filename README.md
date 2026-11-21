@@ -1,6 +1,6 @@
-# 🎨 AI Image Generator
+# 🎨 AI Image Generator & Dump Studio
 
-A dedicated, high-performance microservice and visual studio exclusively designed for generating high-quality, professional, and optimized images from prompts and API requests.
+A dedicated, high-performance microservice and visual studio exclusively designed for generating high-quality, professional, and optimized images from prompts and API requests, with a built-in **Image Dump & Curation** workflow.
 
 ---
 
@@ -16,12 +16,18 @@ A dedicated, high-performance microservice and visual studio exclusively designe
    - Adds commercial softbox lighting, clean composition, and Hasselblad 8k depth of field.
    - Strictly enforces textless, watermark-free, and typography-free visuals.
 
-3. **Multi-Ratio Support**:
+3. **Centralized Image Dump & Review Section**:
+   - **Full Image Dump Catalog**: Stores every visual output created by the tool.
+   - **Approve & Reject Workflow**: Review and tag visuals with 1-click `✓ Approve` or `✕ Reject`.
+   - **Filter Views**: Instantly toggle between `All Dump Images`, `✓ Approved`, `✕ Rejected`, and `⏳ Needs Review`.
+   - **Purge Rejected**: 1-click cleanup to delete all rejected images and free local disk space.
+
+4. **Multi-Ratio Support**:
    - **16:9 Landscape** (`1792x1024` / `1200x675`) for banners, hero graphics, and landscape covers.
    - **1:1 Square** (`1024x1024`) for avatars, profile visuals, and social media.
    - **9:16 Portrait** (`1024x1792`) for stories and mobile graphics.
 
-4. **Multi-Tier Synthesizer**:
+5. **Multi-Tier Synthesizer**:
    - **OpenAI DALL-E 3**: Full photorealism when `OPENAI_API_KEY` is configured.
    - **Neural Vector Synthesizer**: Instant high-resolution fallback generator, guaranteeing fast output without blocking or crashing.
    - **Permanent Local Image Persistence**: Generated images are immediately downloaded and stored in `public/generated/<id>.png`, ensuring image URLs never expire.
@@ -70,40 +76,50 @@ Content-Type: application/json
 }
 ```
 
-**Response (201 Created):**
-```json
+### 2. Curate Image Status (`PATCH /api/images/:id/status`)
+Approve, reject, or reset an image:
+```http
+PATCH http://localhost:5000/api/images/img_12345/status
+Content-Type: application/json
+
 {
-  "success": true,
-  "message": "High-quality image generated successfully",
-  "image": {
-    "id": "img_1794692266103_fsduevk",
-    "url": "http://localhost:5000/generated/img_1794692266103_fsduevk.png",
-    "width": 1792,
-    "height": 1024,
-    "aspectRatio": "16:9",
-    "style": "Commercial Photography",
-    "prompt": "High-end aesthetic visual of modern luxury dental clinic...",
-    "provider": "openai",
-    "model": "dall-e-3",
-    "createdAt": "2026-11-15T03:07:46.104Z"
-  }
+  "status": "approved"   // "approved" | "rejected" | "pending"
 }
 ```
 
----
+### 3. Query Image Dump with Filters (`GET /api/images`)
+```http
+GET http://localhost:5000/api/images?status=approved
+GET http://localhost:5000/api/images?status=rejected
+GET http://localhost:5000/api/images?status=pending
+GET http://localhost:5000/api/images?status=all
+```
 
-### 2. Health & Diagnostics (`GET /api/health`)
+**Response:**
+```json
+{
+  "success": true,
+  "total": 12,
+  "stats": {
+    "all": 30,
+    "approved": 12,
+    "rejected": 5,
+    "pending": 13
+  },
+  "images": [ ... ]
+}
+```
+
+### 4. Purge Rejected Images (`POST /api/images/purge-rejected`)
+Removes all rejected images from the database and deletes local files from disk:
+```http
+POST http://localhost:5000/api/images/purge-rejected
+```
+
+### 5. Health & Diagnostics (`GET /api/health`)
 ```http
 GET http://localhost:5000/api/health
 ```
-
----
-
-### 3. Image Catalog (`GET /api/images`)
-```http
-GET http://localhost:5000/api/images
-```
-Returns a list of all locally created and stored visual assets with their URLs and prompts.
 
 ---
 
@@ -116,14 +132,14 @@ image-generator/
 ├── package.json
 ├── README.md
 ├── public/
-│   ├── index.html            # Image Studio Web Dashboard
+│   ├── index.html            # Image Studio & Dump Web Dashboard
 │   └── generated/            # Permanent image files (.png / .svg)
 └── src/
     ├── config.js             # Configuration
-    ├── db.js                 # SQLite database
+    ├── db.js                 # SQLite database & migrations
     ├── promptOptimizer.js    # AI prompt engineering
     ├── generatorService.js   # Image generation engine
     ├── server.js             # Express server (Port 5000)
     └── routes/
-        └── imageRoutes.js    # /api/generate endpoints
+        └── imageRoutes.js    # /api/generate & Dump curation endpoints
 ```

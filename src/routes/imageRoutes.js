@@ -11,7 +11,7 @@ const generatedDir = path.resolve(__dirname, '../../public/generated');
 const router = Router();
 
 /**
- * POST /api/generate
+ * POST /generate (or /api/generate)
  * Dedicated image generation from any prompt or external API request
  */
 router.post('/generate', async (req, res) => {
@@ -44,8 +44,7 @@ router.post('/generate', async (req, res) => {
 });
 
 /**
- * POST /api/generate-from-blog
- * Backward-compatible endpoint accepting external requests from blog-autoposter
+ * POST /generate-from-blog
  */
 router.post('/generate-from-blog', async (req, res) => {
   try {
@@ -79,30 +78,119 @@ router.post('/generate-from-blog', async (req, res) => {
   }
 });
 
-/**
- * GET /api/images
- * List all generated images
- */
-router.get('/', (req, res) => {
+// Helper for image list
+const handleGetImages = (req, res) => {
   try {
-    const limit = Math.min(60, Math.max(1, parseInt(req.query.limit, 10) || 24));
-    const images = db.query('SELECT * FROM generated_images ORDER BY created_at DESC LIMIT ?', [limit]);
-    const total = db.queryOne('SELECT COUNT(*) as count FROM generated_images').count;
+    const limit = Math.min(100, Math.max(1, parseInt(req.query.limit, 10) || 50));
+    const statusFilter = (req.query.status || 'all').toLowerCase();
+
+    const allCount = db.queryOne('SELECT COUNT(*) as count FROM generated_images').count;
+    const approvedCount = db.queryOne("SELECT COUNT(*) as count FROM generated_images WHERE status = 'approved'").count;
+    const rejectedCount = db.queryOne("SELECT COUNT(*) as count FROM generated_images WHERE status = 'rejected'").count;
+    const pendingCount = db.queryOne("SELECT COUNT(*) as count FROM generated_images WHERE status = 'pending' OR status IS NULL").count;
+
+    let query = 'SELECT * FROM generated_images';
+    const params = [];
+
+    if (statusFilter === 'approved') {
+      query += " WHERE status = 'approved'";
+    } else if (statusFilter === 'rejected') {
+      query += " WHERE status = 'rejected'";
+    } else if (statusFilter === 'pending') {
+      query += " WHERE status = 'pending' OR status IS NULL";
+    }
+
+    query += ' ORDER BY created_at DESC LIMIT ?';
+    params.push(limit);
+
+    const images = db.query(query, params);
 
     res.json({
       success: true,
-      total,
+      total: images.length,
+      stats: {
+        all: allCount,
+        approved: approvedCount,
+        rejected: rejectedCount,
+        pending: pendingCount
+      },
       images
     });
   } catch (err) {
     res.status(500).json({ success: false, error: err.message });
   }
-});
+};
 
-/**
- * GET /api/images/:id
- */
-router.get('/:id', (req, res) => {
+router.get('/', handleGetImages);
+router.get('/images', handleGetImages);
+
+// Helper for status patch
+const handlePatchStatus = (req, res) => {
+  try {
+    const { id } = req.params;
+    const { status } = req.body;
+
+    const validStatuses = ['approved', 'rejected', 'pending'];
+    if (!validStatuses.includes(status)) {
+      return res.status(400).json({
+        success: false,
+        error: `Invalid status. Must be one of: ${validStatuses.join(', ')}`
+      });
+    }
+
+    const image = db.queryOne('SELECT * FROM generated_images WHERE id = ?', [id]);
+    if (!image) {
+      return res.status(404).json({ success: false, error: 'Image not found' });
+    }
+
+    db.execute('UPDATE generated_images SET status = ? WHERE id = ?', [status, id]);
+
+    res.json({
+      success: true,
+      message: `Image successfully marked as ${status}`,
+      id,
+      status
+    });
+  } catch (err) {
+    res.status(500).json({ success: false, error: err.message });
+  }
+};
+
+router.patch('/:id/status', handlePatchStatus);
+router.patch('/images/:id/status', handlePatchStatus);
+
+// Helper for purge rejected
+const handlePurgeRejected = (req, res) => {
+  try {
+    const rejectedImages = db.query("SELECT * FROM generated_images WHERE status = 'rejected'");
+    let deletedCount = 0;
+
+    for (const img of rejectedImages) {
+      if (img.file_name) {
+        const filePath = path.join(generatedDir, img.file_name);
+        if (fs.existsSync(filePath)) {
+          try { fs.unlinkSync(filePath); } catch (e) {}
+        }
+      }
+      db.execute('DELETE FROM generated_images WHERE id = ?', [img.id]);
+      deletedCount++;
+    }
+
+    res.json({
+      success: true,
+      message: `Purged ${deletedCount} rejected images`,
+      deletedCount
+    });
+  } catch (err) {
+    res.status(500).json({ success: false, error: err.message });
+  }
+};
+
+router.post('/purge-rejected', handlePurgeRejected);
+router.post('/images/purge-rejected', handlePurgeRejected);
+
+// Single image query
+const handleGetSingleImage = (req, res) => {
   try {
     const { id } = req.params;
     const image = db.queryOne('SELECT * FROM generated_images WHERE id = ?', [id]);
@@ -113,12 +201,13 @@ router.get('/:id', (req, res) => {
   } catch (err) {
     res.status(500).json({ success: false, error: err.message });
   }
-});
+};
 
-/**
- * DELETE /api/images/:id
- */
-router.delete('/:id', (req, res) => {
+router.get('/:id', handleGetSingleImage);
+router.get('/images/:id', handleGetSingleImage);
+
+// Delete image
+const handleDeleteImage = (req, res) => {
   try {
     const { id } = req.params;
     const image = db.queryOne('SELECT * FROM generated_images WHERE id = ?', [id]);
@@ -126,7 +215,6 @@ router.delete('/:id', (req, res) => {
       return res.status(404).json({ success: false, error: 'Image not found' });
     }
 
-    // Delete local file if present
     if (image.file_name) {
       const filePath = path.join(generatedDir, image.file_name);
       if (fs.existsSync(filePath)) {
@@ -139,6 +227,9 @@ router.delete('/:id', (req, res) => {
   } catch (err) {
     res.status(500).json({ success: false, error: err.message });
   }
-});
+};
+
+router.delete('/:id', handleDeleteImage);
+router.delete('/images/:id', handleDeleteImage);
 
 export default router;
